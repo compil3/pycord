@@ -95,13 +95,7 @@ class WelcomeScreenChannel:
         _emoji_id = _get_as_snowflake(data, 'emoji_id')
         _emoji_name = data.get('emoji_name')
 
-        if _emoji_id:
-            # custom guild emoji
-            emoji = get(guild.emojis, id=_emoji_id)
-        else:
-            # unicode emoji or None
-            emoji = _emoji_name
-
+        emoji = get(guild.emojis, id=_emoji_id) if _emoji_id else _emoji_name
         return cls(channel=channel, description=description, emoji=emoji)  # type: ignore
 
 
@@ -204,20 +198,20 @@ class WelcomeScreen:
             This welcome screen does not exist.
         
         """
-        
+
         welcome_channels = options.get('welcome_channels', [])
         welcome_channels_data = []
-       
+
         for channel in welcome_channels:
             if not isinstance(channel, WelcomeScreenChannel):
                 raise TypeError('welcome_channels parameter must be a list of WelcomeScreenChannel.')
-                
+
             welcome_channels_data.append(channel.to_dict())
-            
+
         options['welcome_channels'] = welcome_channels_data
 
         if options:
             new = await self._guild._state.http.edit_welcome_screen(self._guild.id, options, reason=options.get('reason'))
             self._update(new)
-        
+
         return self
