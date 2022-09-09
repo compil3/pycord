@@ -173,13 +173,11 @@ class ApplicationCommandMixin:
         for command in [cmd for cmd in self.to_register if cmd.guild_ids is None]:
             as_dict = command.to_dict()
             if len(registered_commands) > 0:
-                matches = [
+                if matches := [
                     x
                     for x in registered_commands
                     if x["name"] == command.name and x["type"] == command.type
-                ]
-                # TODO: rewrite this, it seems inefficient
-                if matches:
+                ]:
                     as_dict["id"] = matches[0]["id"]
             commands.append(as_dict)
 
@@ -199,9 +197,8 @@ class ApplicationCommandMixin:
             except Forbidden:
                 if not update_guild_commands[guild_id]:
                     continue
-                else:
-                    print(f"Failed to add command to guild {guild_id}", file=sys.stderr)
-                    raise
+                print(f"Failed to add command to guild {guild_id}", file=sys.stderr)
+                raise
             else:
                 for i in cmds:
                     cmd = get(self.to_register, name=i["name"], description=i["description"], type=i['type'])
@@ -357,7 +354,7 @@ class ApplicationCommandMixin:
         :class:`.InteractionContext`
             The invocation context.
         """
-        if cls == None:
+        if cls is None:
             cls = InteractionContext
         return cls(self, interaction)
 

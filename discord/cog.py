@@ -50,7 +50,7 @@ FuncT = TypeVar('FuncT', bound=Callable[..., Any])
 MISSING: Any = discord.utils.MISSING
 
 def _is_submodule(parent: str, child: str) -> bool:
-    return parent == child or child.startswith(parent + ".")
+    return parent == child or child.startswith(f"{parent}.")
 
 class CogMeta(type):
     """A metaclass for defining a cog.
@@ -168,10 +168,10 @@ class CogMeta(type):
 
         listeners_as_list = []
         for listener in listeners.values():
-            for listener_name in listener.__cog_listener_names__:
-                # I use __name__ instead of just storing the value so I can inject
-                # the self attribute when the time comes to add them to the bot
-                listeners_as_list.append((listener_name, listener.__name__))
+            listeners_as_list.extend(
+                (listener_name, listener.__name__)
+                for listener_name in listener.__cog_listener_names__
+            )
 
         new_cls.__cog_listeners__ = listeners_as_list
 
@@ -228,12 +228,7 @@ class Cog(metaclass=CogMeta):
     __cog_listeners__: ClassVar[List[Tuple[str, str]]]
 
     def __new__(cls: Type[CogT], *args: Any, **kwargs: Any) -> CogT:
-        # For issue 426, we need to store a copy of the command objects
-        # since we modify them to inject `self` to them.
-        # To do this, we need to interfere with the Cog creation process.
-        self = super().__new__(cls)
-
-        return self
+        return super().__new__(cls)
 
     def get_commands(self) -> List[ApplicationCommand]:
         r"""
@@ -436,22 +431,21 @@ class Cog(metaclass=CogMeta):
         # is essentially just the command loading, which raises if there are
         # duplicates. When this condition is met, we want to undo all what
         # we've added so far for some form of atomic loading.
-        
+
         for index, command in enumerate(self.__cog_commands__):
             command.cog = self
-            if not isinstance(command, ApplicationCommand):
-                if command.parent is None:
-                    try:
-                        bot.add_command(command)
-                    except Exception as e:
-                        # undo our additions
-                        for to_undo in self.__cog_commands__[:index]:
-                            if to_undo.parent is None:
-                                bot.remove_command(to_undo.name)
-                        raise e
-            else:
+            if isinstance(command, ApplicationCommand):
                 bot.add_application_command(command)
 
+            elif command.parent is None:
+                try:
+                    bot.add_command(command)
+                except Exception as e:
+                    # undo our additions
+                    for to_undo in self.__cog_commands__[:index]:
+                        if to_undo.parent is None:
+                            bot.remove_command(to_undo.name)
+                    raise e
         # check if we're overriding the default
         if cls.bot_check is not Cog.bot_check:
             bot.add_check(self.bot_check)
@@ -475,9 +469,8 @@ class Cog(metaclass=CogMeta):
             for command in self.__cog_commands__:
                 if isinstance(command, ApplicationCommand):
                     bot.remove_application_command(command)
-                else:
-                    if command.parent is None:
-                        bot.remove_command(command.name)
+                elif command.parent is None:
+                    bot.remove_command(command.name)
 
             for _, method_name in self.__cog_listeners__:
                 bot.remove_listener(getattr(self, method_name))
@@ -539,7 +532,7 @@ class CogMixin:
             if not override:
                 raise discord.ClientException(f'Cog named {cog_name!r} already loaded')
             self.remove_cog(cog_name)
-        
+
         cog = cog._inject(self)
         self.__cogs[cog_name] = cog
 
@@ -615,10 +608,12 @@ class CogMixin:
 
         # remove all the listeners from the module
         for event_list in self.extra_events.copy().values():
-            remove = []
-            for index, event in enumerate(event_list):
-                if event.__module__ is not None and _is_submodule(name, event.__module__):
-                    remove.append(index)
+            remove = [
+                index
+                for index, event in enumerate(event_list)
+                if event.__module__ is not None
+                and _is_submodule(name, event.__module__)
+            ]
 
             for index in reversed(remove):
                 del event_list[index]

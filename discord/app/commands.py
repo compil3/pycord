@@ -61,7 +61,7 @@ class SlashCommand(ApplicationCommand):
             raise TypeError("Callback must be a coroutine.")
         self.callback = func
 
-        self.guild_ids: Optional[List[int]] = kwargs.get("guild_ids", None)
+        self.guild_ids: Optional[List[int]] = kwargs.get("guild_ids")
 
         name = kwargs.get("name") or func.__name__
         if not isinstance(name, str):
@@ -89,13 +89,13 @@ class SlashCommand(ApplicationCommand):
         params.pop(list(params)[0]) 
 
         final_options = []
-        
+
         for p_name, p_obj in params.items():
 
             option = p_obj.annotation
             if option == inspect.Parameter.empty:
                 option = str
-            
+
             if self._is_typing_optional(option):
                 option = Option(option.__args__[0], "No description provided", required=False)
 
@@ -103,7 +103,7 @@ class SlashCommand(ApplicationCommand):
                 option = Option(option, "No description provided")
                 if p_obj.default != inspect.Parameter.empty:
                     option.required = False
-                
+
             option.default = option.default or p_obj.default
 
             if option.default == inspect.Parameter.empty:
@@ -111,7 +111,7 @@ class SlashCommand(ApplicationCommand):
 
             if option.name is None:
                 option.name = p_name
-                
+
             final_options.append(option)
 
         return final_options
@@ -180,8 +180,9 @@ class Option:
         self.required: bool = kwargs.pop("required", True)
         self.choices: List[OptionChoice] = [
             o if isinstance(o, OptionChoice) else OptionChoice(o)
-            for o in kwargs.pop("choices", list())
+            for o in kwargs.pop("choices", [])
         ]
+
         self.default = kwargs.pop("default", None)
 
     def to_dict(self) -> Dict:
@@ -276,7 +277,7 @@ class UserCommand(ApplicationCommand):
             raise TypeError("Callback must be a coroutine.")
         self.callback = func
 
-        self.guild_ids: Optional[List[int]] = kwargs.get("guild_ids", None)
+        self.guild_ids: Optional[List[int]] = kwargs.get("guild_ids")
 
         self.description = (
             ""  # Discord API doesn't support setting descriptions for User commands
@@ -327,7 +328,7 @@ class MessageCommand(ApplicationCommand):
             raise TypeError("Callback must be a coroutine.")
         self.callback = func
 
-        self.guild_ids = kwargs.get("guild_ids", None)
+        self.guild_ids = kwargs.get("guild_ids")
 
         self.description = ""
         self.name = kwargs.pop("name", func.__name__)
